@@ -8,6 +8,7 @@ import { jsSession } from './cookies';
 import { DeferrablePassThrough } from './utils/deferrable-pass-through';
 import { JSDetectionContext } from './utils/DetectJavaScript';
 import { createSession, waitForSession } from './utils/session';
+import { BlockablePassThrough } from './blockable-defer/BlockablePassThrough';
 
 const ABORT_DELAY = 5000;
 
@@ -82,30 +83,25 @@ function handleBrowserRequest(
   return new Promise(async (resolve, reject) => {
     const [session, deferrable] = (await jsSession.parse(request.headers.get('cookie')) ?? '').split(':');
     let didError = false;
-    let deferring = deferrable;
-    let sent = false;
+    const start = Date.now();
 
-    const body = deferrable ? new PassThrough() : new DeferrablePassThrough(session);
-    // const body = new DeferrablePassThrough(session);
+    const body = new BlockablePassThrough(session, !deferrable);
 
     if (!session) {
-      await createSession((body as DeferrablePassThrough).id);
-      responseHeaders.set('Set-Cookie', await jsSession.serialize((body as DeferrablePassThrough).id));
+      await createSession(body.id);
+      responseHeaders.set('Set-Cookie', await jsSession.serialize(body.id));
     }
 
     let sessionWatcher: { promise: Promise<void>, cancel: () => void };
     if (!deferrable) {
-      sessionWatcher = waitForSession((body as DeferrablePassThrough).id);
+      sessionWatcher = waitForSession(body.id);
       sessionWatcher.promise.then(() => {
-        if (!deferring && !sent) {
-          deferring = true;
-          pipe(body);
-        }
+        body.unblock();
       });
     }
 
     const app = (
-      <JSDetectionContext.Provider value={(body as DeferrablePassThrough).id ?? ''}>
+      <JSDetectionContext.Provider value={{ session: body.id ?? '', deferrable: deferrable ?? '' }}>
         <RemixServer context={remixContext} url={request.url} />
       </JSDetectionContext.Provider>
     );
@@ -121,26 +117,19 @@ function handleBrowserRequest(
           })
         );
 
-        if (deferring) {
-          sent = true;
-          pipe(body);
-        } else {
-          (body as DeferrablePassThrough).prewrite();
-        }
+        pipe(body);
       },
       onAllReady() {
-        if (!deferring) {
-          sent = true;
-          sessionWatcher?.cancel();
-          pipe(body);
-        }
+        console.log(`All ready after ${Date.now() - start}ms`);
+        sessionWatcher?.cancel();
       },
       onShellError(err: unknown) {
         reject(err);
       },
       onError(error: unknown) {
         didError = true;
-        
+        sessionWatcher?.cancel();
+        body.unblock();
         console.error(error);
       },
     });

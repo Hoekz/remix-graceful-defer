@@ -1,20 +1,21 @@
 import { createContext, useContext } from 'react';
 
-export const JSDetectionContext = createContext('');
+export const JSDetectionContext = createContext({ session: '', deferrable: '' });
 
 export function DetectJavaScript() {
-  const sessionId = useContext(JSDetectionContext);
+  const { session, deferrable } = useContext(JSDetectionContext);
 
-  if (!sessionId) {
+  if (!session || deferrable) {
     return null;
   }
 
   return (
     <script
       id="remix-enable-js"
-      data-session={sessionId}
+      data-session={session}
+      data-deferrable={deferrable}
       lang='javascript'
-      dangerouslySetInnerHTML={{ __html: `fetch('/enable-js?s=${sessionId}')` }}
+      dangerouslySetInnerHTML={{ __html: `fetch('/enable-js?s=${session}')` }}
     />
   );
 }

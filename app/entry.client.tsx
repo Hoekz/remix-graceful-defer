@@ -4,13 +4,14 @@ import { hydrateRoot } from "react-dom/client";
 import { JSDetectionContext } from './utils/DetectJavaScript';
 
 function hydrate() {
-  const sessionId = document.getElementById('remix-enable-js')?.getAttribute('data-session') ?? '';
+  const session = document.getElementById('remix-enable-js')?.getAttribute('data-session') ?? '';
+  const deferrable = document.getElementById('remix-enable-js')?.getAttribute('data-deferrable') ?? '';
 
   startTransition(() => {
     hydrateRoot(
       document,
       <StrictMode>
-        <JSDetectionContext.Provider value={sessionId}>
+        <JSDetectionContext.Provider value={{ session, deferrable }}>
           <RemixBrowser />
         </JSDetectionContext.Provider>
       </StrictMode>

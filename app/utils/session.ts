@@ -32,7 +32,7 @@ async function waitForRename(file: string, controller: AbortController) {
       }
     }
   } catch(e) {
-    console.log('waiting had an error', e);
+    console.log('stop waiting, nondeferrable');
   }
 }
 
