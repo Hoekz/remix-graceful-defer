@@ -8,6 +8,8 @@ import { jsSession } from './cookies';
 import { JSDetectionContext } from './utils/DetectJavaScript';
 import { createSession, waitForSession } from './utils/session';
 import { BlockablePassThrough } from './blockable-defer/BlockablePassThrough';
+import { BlockUntilComplete, HidePlaceholders, ReplacePlaceholders } from '../deferrable/strategies';
+import { DeferrableSession, FileBasedPersistence, fromCookie, toCookie } from '../deferrable';
 
 const ABORT_DELAY = 5000;
 
@@ -24,7 +26,7 @@ export default function handleRequest(
         responseHeaders,
         remixContext
       )
-    : handleBrowserRequest(
+    : handleDeferrableRequest(
         request,
         responseStatusCode,
         responseHeaders,
@@ -137,7 +139,62 @@ function handleBrowserRequest(
   });
 }
 
-export const handleDataRequest: HandleDataRequestFunction = (res, { request }) => {
-  console.log('DATA REQUEST HANDLER:', request.url);
+const getSession = fromCookie;
+const setSession = toCookie;
+const Persistence = FileBasedPersistence;
+const Strategy = HidePlaceholders;
+
+function handleDeferrableRequest(
+  request: Request,
+  responseStatusCode: number,
+  responseHeaders: Headers,
+  remixContext: EntryContext
+) {
+  return new Promise(async (resolve, reject) => {
+    let didError = false;
+    const session = getSession(request);
+    const persistor = new Persistence();
+
+    const respond = () => resolve(
+      setSession(session, new Response(strategy, {
+        headers: responseHeaders,
+        status: didError ? 500 : responseStatusCode,
+      }))
+    );
+
+    const { pipe, abort } = renderToPipeableStream(<RemixServer context={remixContext} url={request.url} />, {
+      onShellReady() {
+        responseHeaders.set("Content-Type", "text/html");
+        strategy.onReady();
+      },
+      onAllReady() {
+        strategy.onComplete();
+      },
+      onShellError(err: unknown) {
+        reject(err);
+      },
+      onError(error: unknown) {
+        strategy.onError(error);
+        console.error(error);
+      },
+    });
+
+    const strategy = new Strategy(session, persistor, pipe, respond);
+
+    setTimeout(abort, ABORT_DELAY);
+  });
+}
+
+export const handleDataRequest: HandleDataRequestFunction = async (res, { request }) => {
+  const url = new URL(request.url);
+
+  if (url.pathname === DeferrableSession.api) {
+    const session = getSession(request);
+    const persistor = new Persistence();
+    await persistor.destroy(session);
+    session.deferrable = true;
+    return setSession(session);
+  }
+
   return res;
 };

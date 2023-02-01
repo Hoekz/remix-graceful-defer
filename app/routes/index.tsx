@@ -22,11 +22,11 @@ export default function Index() {
   const refresh = useRevalidator();
   const loading = <div>Loading...</div>;
 
-  useEffect(() => {
-    setTimeout(() => {
-      refresh.revalidate();
-    }, 5000);
-  }, []);
+  // useEffect(() => {
+  //   setTimeout(() => {
+  //     refresh.revalidate();
+  //   }, 5000);
+  // }, []);
 
   return (
     <div>

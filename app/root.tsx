@@ -7,7 +7,6 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
-import { DetectJavaScript } from './utils/DetectJavaScript';
 
 export const meta: MetaFunction = () => ({
   charset: "utf-8",
@@ -19,7 +18,6 @@ export default function App() {
   return (
     <html lang="en">
       <head>
-        <DetectJavaScript />
         <Meta />
         <Links />
       </head>
