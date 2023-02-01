@@ -4,12 +4,9 @@ import { Response } from "@remix-run/node";
 import { RemixServer } from "@remix-run/react";
 import isbot from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
-import { jsSession } from './cookies';
-import { JSDetectionContext } from './utils/DetectJavaScript';
-import { createSession, waitForSession } from './utils/session';
-import { BlockablePassThrough } from './blockable-defer/BlockablePassThrough';
 import { BlockUntilComplete, HidePlaceholders, ReplacePlaceholders } from '../deferrable/strategies';
-import { DeferrableSession, FileBasedPersistence, fromCookie, toCookie } from '../deferrable';
+import { FileBasedPersistence } from '../deferrable/persistors';
+import { CookieBasedSession } from '../deferrable/managers';
 
 const ABORT_DELAY = 5000;
 
@@ -75,74 +72,16 @@ function handleBotRequest(
   });
 }
 
-function handleBrowserRequest(
-  request: Request,
-  responseStatusCode: number,
-  responseHeaders: Headers,
-  remixContext: EntryContext
-) {
-  return new Promise(async (resolve, reject) => {
-    const [session, deferrable] = (await jsSession.parse(request.headers.get('cookie')) ?? '').split(':');
-    let didError = false;
-    const start = Date.now();
+const SessionImpl = CookieBasedSession;
+const PersistenceImpl = FileBasedPersistence;
+const StrategyImpl = {
+  block: BlockUntilComplete,
+  replace: ReplacePlaceholders,
+  hide: HidePlaceholders,
+}[process.env.DEFER_STRATEGY as string] ?? BlockUntilComplete;
 
-    const body = new BlockablePassThrough(session, !deferrable);
-
-    if (!session) {
-      await createSession(body.id);
-      responseHeaders.set('Set-Cookie', await jsSession.serialize(`${body.id}:false`));
-    }
-
-    let sessionWatcher: { promise: Promise<void>, cancel: () => void };
-    if (!deferrable) {
-      sessionWatcher = waitForSession(body.id);
-      sessionWatcher.promise.then(() => {
-        body.unblock();
-      });
-    }
-
-    const app = (
-      <JSDetectionContext.Provider value={{ session: body.id ?? '', deferrable: deferrable ?? '' }}>
-        <RemixServer context={remixContext} url={request.url} />
-      </JSDetectionContext.Provider>
-    );
-
-    const { pipe, abort } = renderToPipeableStream(app, {
-      onShellReady() {
-        responseHeaders.set("Content-Type", "text/html");
-        
-        resolve(
-          new Response(body, {
-            headers: responseHeaders,
-            status: didError ? 500 : responseStatusCode,
-          })
-        );
-
-        pipe(body);
-      },
-      onAllReady() {
-        console.log(`All ready after ${Date.now() - start}ms`);
-        sessionWatcher?.cancel();
-      },
-      onShellError(err: unknown) {
-        reject(err);
-      },
-      onError(error: unknown) {
-        didError = true;
-        sessionWatcher?.cancel();
-        body.unblock();
-        console.error(error);
-      },
-    });
-
-    setTimeout(abort, ABORT_DELAY);
-  });
-}
-
-const getSession = fromCookie;
-const setSession = toCookie;
-const Persistence = FileBasedPersistence;
-const Strategy = HidePlaceholders;
+const sessionManager = new SessionImpl();
+const sessionPersistor = new PersistenceImpl();
 
 function handleDeferrableRequest(
   request: Request,
@@ -152,11 +91,10 @@ function handleDeferrableRequest(
 ) {
   return new Promise(async (resolve, reject) => {
     let didError = false;
-    const session = getSession(request);
-    const persistor = new Persistence();
+    const session = sessionManager.getSession(request);
 
     const respond = () => resolve(
-      setSession(session, new Response(strategy, {
+      sessionManager.setSession(session, new Response(strategy, {
         headers: responseHeaders,
         status: didError ? 500 : responseStatusCode,
       }))
@@ -179,21 +117,18 @@ function handleDeferrableRequest(
       },
     });
 
-    const strategy = new Strategy(session, persistor, pipe, respond);
+    const strategy = new StrategyImpl(session, sessionPersistor, pipe, respond);
 
     setTimeout(abort, ABORT_DELAY);
   });
 }
 
 export const handleDataRequest: HandleDataRequestFunction = async (res, { request }) => {
-  const url = new URL(request.url);
-
-  if (url.pathname === DeferrableSession.api) {
-    const session = getSession(request);
-    const persistor = new Persistence();
-    await persistor.destroy(session);
+  if (sessionManager.matches(request)) {
+    const session = sessionManager.getSession(request);
+    await sessionPersistor.destroy(session);
     session.deferrable = true;
-    return setSession(session);
+    return sessionManager.setSession(session);
   }
 
   return res;

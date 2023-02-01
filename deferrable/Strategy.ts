@@ -1,5 +1,5 @@
 import { PassThrough } from 'stream';
-import { type SessionPersistance } from './Persistence';
+import { type SessionPersistence } from './Persistence';
 import { type DeferrableSession } from './Session';
 
 type PipeFunc = (s: PassThrough) => PassThrough;
@@ -12,7 +12,7 @@ export abstract class DeferrableStrategy extends PassThrough {
 
   constructor(
     public session: DeferrableSession,
-    public persistor: SessionPersistance,
+    public persistor: SessionPersistence,
     public input: PipeFunc,
     public output: ResolveFunc,
   ) {
