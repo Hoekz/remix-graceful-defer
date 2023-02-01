@@ -3,6 +3,7 @@ import { jsSession } from '../cookies';
 import { markSession } from '../utils/session';
 
 export const loader: LoaderFunction = async ({ request }) => {
+  console.log('RUNNING ENABLE JS LOADER');
   const sessionId = (new URL(request.url)).searchParams.get('s');
 
   if (!sessionId) {

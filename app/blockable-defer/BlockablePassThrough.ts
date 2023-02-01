@@ -40,7 +40,7 @@ export class BlockablePassThrough extends PassThrough {
 
     for (const chunk of this.buffer) {
       console.log('-------FLUSH----------');
-      console.log(chunk.chunk);
+      // console.log(chunk.chunk);
       super._write(chunk.chunk, chunk.encoding, chunk.callback);
     }
 
@@ -85,18 +85,18 @@ export class BlockablePassThrough extends PassThrough {
 
     if (this.blocking) {
       const str = chunkRef.chunk = chunk.toString();
-      console.log(str);
+      // console.log(str);
       let placeholder = matchPlaceholder(str);
 
       if (!placeholder) {
         console.log('-----NO PLACEHOLDER-----');
-        console.log(str);
+        // console.log(str);
         return super._write(chunk, encoding, callback);
       }
 
       // send everything before the placeholder
       console.log('-----BEFORE PLACEHOLDER-----');
-      console.log(str.substring(0, placeholder.start));
+      // console.log(str.substring(0, placeholder.start));
       super._write(str.substring(0, placeholder.start), encoding, noop);
 
       // save placeholder as chunk
@@ -149,7 +149,7 @@ export class BlockablePassThrough extends PassThrough {
     }
 
     console.log(!this.blocking ? '-------PASS THROUGH---------' : '-------BEFORE BLOCKING------');
-    console.log(chunk.toString());
+    // console.log(chunk.toString());
 
     return super._write(chunk, encoding, callback);
   }

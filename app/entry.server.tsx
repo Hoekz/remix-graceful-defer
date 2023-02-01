@@ -1,11 +1,10 @@
 import { PassThrough } from "stream";
-import type { EntryContext } from "@remix-run/node";
+import type { EntryContext, HandleDataRequestFunction } from "@remix-run/node";
 import { Response } from "@remix-run/node";
 import { RemixServer } from "@remix-run/react";
 import isbot from "isbot";
 import { renderToPipeableStream } from "react-dom/server";
 import { jsSession } from './cookies';
-import { DeferrablePassThrough } from './utils/deferrable-pass-through';
 import { JSDetectionContext } from './utils/DetectJavaScript';
 import { createSession, waitForSession } from './utils/session';
 import { BlockablePassThrough } from './blockable-defer/BlockablePassThrough';
@@ -89,7 +88,7 @@ function handleBrowserRequest(
 
     if (!session) {
       await createSession(body.id);
-      responseHeaders.set('Set-Cookie', await jsSession.serialize(body.id));
+      responseHeaders.set('Set-Cookie', await jsSession.serialize(`${body.id}:false`));
     }
 
     let sessionWatcher: { promise: Promise<void>, cancel: () => void };
@@ -137,3 +136,8 @@ function handleBrowserRequest(
     setTimeout(abort, ABORT_DELAY);
   });
 }
+
+export const handleDataRequest: HandleDataRequestFunction = (res, { request }) => {
+  console.log('DATA REQUEST HANDLER:', request.url);
+  return res;
+};

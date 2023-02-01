@@ -1,5 +1,5 @@
-import { Suspense } from 'react';
-import { Await, defer, useLoaderData, type LoaderFunction } from 'react-router';
+import { Suspense, useEffect } from 'react';
+import { Await, defer, useLoaderData, useRevalidator, type LoaderFunction } from 'react-router';
 
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -19,7 +19,14 @@ export const loader: LoaderFunction = () => {
 
 export default function Index() {
   const { one, two, three } = useLoaderData() as DeferredData;
+  const refresh = useRevalidator();
   const loading = <div>Loading...</div>;
+
+  useEffect(() => {
+    setTimeout(() => {
+      refresh.revalidate();
+    }, 5000);
+  }, []);
 
   return (
     <div>
