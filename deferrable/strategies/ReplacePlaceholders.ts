@@ -77,10 +77,12 @@ export class ReplacePlaceholders extends DeferrableStrategy {
       const placeholder = matchPlaceholder(str);
 
       if (!placeholder) {
-        return super._write(chunk, encoding, callback);
+        super._write(chunk, encoding, callback);
+        super._write(this.session.script, encoding, noop);
+        return;
       }
 
-      super._write(str.substring(0, placeholder.start), encoding, noop);
+      super._write(str.substring(0, placeholder.start) + this.session.script, encoding, noop);
       
       this.handlePlaceholder(str, encoding, placeholder);
       
