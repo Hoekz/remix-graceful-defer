@@ -8,6 +8,10 @@ export class FileBasedPersistence implements SessionPersistence {
 
   async persist(session: DeferrableSession) {
     try {
+      if (session.deferrable !== undefined) {
+        return this.destroy(session);
+      }
+
       await fs.promises.writeFile(path.join(FileBasedPersistence.directory, session.id), '');
       return true;
     } catch {

@@ -18,8 +18,8 @@ export class ReplacePlaceholders extends DeferrableStrategy {
     this.blockable = !this.session.deferrable;
 
     if (this.session.deferrable === undefined) {
-      await this.persistor.persist(this.session);
-      this.persistor.onChange(this.session, () => {
+      await this.session.persist();
+      this.session.onChange(() => {
         this.blockable = false;
 
         if (this.blocked) {
@@ -34,7 +34,7 @@ export class ReplacePlaceholders extends DeferrableStrategy {
 
   onComplete() {
     this.watcher?.();
-    this.persistor.destroy(this.session);
+    this.session.destroy();
     this.flushBuffer();
   }
 
@@ -149,6 +149,6 @@ export class ReplacePlaceholders extends DeferrableStrategy {
 
   onError(error: unknown) {
     this.watcher?.();
-    this.persistor.destroy(this.session);
+    this.session.destroy();
   }
 }

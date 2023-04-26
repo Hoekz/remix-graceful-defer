@@ -1,4 +1,6 @@
-import { DeferrableSession, type SessionManager } from '../Session';
+import type { SessionManager } from '../Manager';
+import type { SessionPersistence } from '../Persistence';
+import { DeferrableSession } from '../Session';
 
 const genId = () => Math.floor(Math.random() * 0xFFFFFFFFFFFF).toString(16);
 
@@ -20,16 +22,16 @@ export class CookieBasedSession implements SessionManager {
     return `<script lang="javascript">fetch('${this.api}?_data=routes%2F$');document.currentScript.remove();</script>`;
   }
 
-  getSession(req: Request): DeferrableSession {
+  getSession(req: Request, persistor: SessionPersistence): DeferrableSession {
     const cookies = req.headers.get('cookie') ?? '';
     const at = cookies.indexOf(`${this.name}=`);
   
     if (at === -1) {
-      return new DeferrableSession(genId(), undefined, this);
+      return new DeferrableSession(genId(), undefined, this, persistor);
     }
   
     const cookie = cookies.substring(at + this.name.length + 1).split(';')[0];
-    return new DeferrableSession(cookie.split(':')[0], cookie.split(':')[1] === 'true', this);
+    return new DeferrableSession(cookie.split(':')[0], cookie.split(':')[1] === 'true', this, persistor);
   }
 
   setSession(session: DeferrableSession, res?: Response) {

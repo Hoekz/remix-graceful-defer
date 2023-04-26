@@ -19,15 +19,16 @@ export class BlockUntilComplete extends DeferrableStrategy {
       this.staged = true;
       this.blocked = true;
 
-      await this.persistor.persist(this.session);
-      this.watcher = this.persistor.onChange(this.session, () => this.unblock());
+      await this.session.persist();
+      this.watcher = this.session.onChange(() => this.unblock());
     }
   }
 
   onComplete() {
     if (this.released) return;
     this.unblock();
-    this.persistor.destroy(this.session);
+    this.session.deferrable = false;
+    this.session.persist();
   }
 
   private unblock() {
@@ -54,6 +55,6 @@ export class BlockUntilComplete extends DeferrableStrategy {
 
   onError(error: unknown) {
     this.watcher?.();
-    this.persistor.destroy(this.session);
+    this.session.destroy();
   }
 }

@@ -91,7 +91,7 @@ function handleDeferrableRequest(
 ) {
   return new Promise(async (resolve, reject) => {
     let didError = false;
-    const session = sessionManager.getSession(request);
+    const session = sessionManager.getSession(request, sessionPersistor);
 
     const respond = () => resolve(
       sessionManager.setSession(session, new Response(strategy, {
@@ -117,7 +117,7 @@ function handleDeferrableRequest(
       },
     });
 
-    const strategy = new StrategyImpl(session, sessionPersistor, pipe, respond);
+    const strategy = new StrategyImpl(session, pipe, respond);
 
     setTimeout(abort, ABORT_DELAY);
   });
@@ -125,9 +125,9 @@ function handleDeferrableRequest(
 
 export const handleDataRequest: HandleDataRequestFunction = async (res, { request }) => {
   if (sessionManager.matches(request)) {
-    const session = sessionManager.getSession(request);
-    await sessionPersistor.destroy(session);
+    const session = sessionManager.getSession(request, sessionPersistor);
     session.deferrable = true;
+    await session.persist();
     return sessionManager.setSession(session);
   }
 
